@@ -18,13 +18,14 @@ class OnlineScenarioA1():
         while (simulator.ros_state is None):
             rospy.loginfo_throttle_identical(
                 0.5, "waiting for the first state")
-
+            if rospy.is_shutdown():
+                raise KeyboardInterrupt
         self.simulator = simulator
         self.system = simulator.system
 
         self.controller = controller
-        self.actor = controller.actor
-        self.critic = controller.critic
+        # self.actor = controller.actor
+        # self.critic = controller.critic
         self.running_objective = running_objective
         self.time_final = self.simulator.time_final
 
@@ -48,7 +49,6 @@ class OnlineScenarioA1():
         print("RUN")
         while self.step():
             pass
-        self.reload_pipeline()
         print("Episode ended successfully.")
 
     def step(self):
@@ -83,14 +83,17 @@ class OnlineScenarioA1():
             self.compute_time = time.time() - time0
             print("compute_body_plan")
             body_plan = self.predictor.predict(
-                self.state_full, self.action.reshape(12, 1))
+                self.state_full, self.action.reshape((12, 1)))
             print("receive_action and body_plan")
             self.system.receive_action(self.action, msg_time)
             self.system.receive_body_plan(body_plan)
             print("post_step")
-            self.post_step()
+            # self.post_step()
+            print("ACTION")
+            print(self.action)
             print("log info")
             self.printLogData()
+            raise Exception
             # self.sim_status = self.simulator.do_sim_step()
             return True
 

@@ -17,6 +17,7 @@ class A1system():
         A1_topic_name_res,
         dim_state: int,
         dim_input: int,
+        dim_output: int,
     ):
         print("a1 system init")
         rospy.init_node("A1_planner")
@@ -27,6 +28,7 @@ class A1system():
             A1_topic_name_res, CalfResponse, queue_size=1)
         self.dim_state = dim_state
         self.dim_input = dim_input
+        self.dim_output = dim_output
         with open("/home/catkin_ws/src/local_planner_calf/scripts/casadi_rhs.txt", "rb") as outf:
             self.casadi_rhs = pickle.load(outf)
         print("a1 system is ready")

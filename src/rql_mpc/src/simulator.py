@@ -10,20 +10,20 @@ class A1simulator():
     def __init__(
             self,
             system,
-            dt,
             A1_topic_name_req,
             dim_state,
             sampling_time,
             prediction_step_size,
             time_final=1,
+            time_start=0,
             action_init=None,
             body_plan_init=None,
     ):
         print("simulator START")
         # init common params
         self.system = system
-        self.dt = dt
         self.time_final = time_final
+        self.time_start = time_start
         self.dim_state = dim_state
         self.sys_out = system.out
         # init ros params
@@ -43,7 +43,8 @@ class A1simulator():
         self.system.receive_action(action_init, rospy.Time.now())
         self.system.receive_body_plan(body_plan_init)
 
-        self.state_queue = deque(maxlen=prediction_step_size // sampling_time)
+        self.state_queue = deque(maxlen=int(
+            prediction_step_size // sampling_time))
 
         print("simulator is READY")
 
@@ -53,7 +54,8 @@ class A1simulator():
             return -1
 
         while (self.ros_state is None):
-            pass
+            if rospy.is_shutdown():
+                raise KeyboardInterrupt
 
         print("pub action")
         self.system.publishAction()
