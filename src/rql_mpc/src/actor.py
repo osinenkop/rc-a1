@@ -35,8 +35,8 @@ class Actor:
         dim_input: int = 5,
         prediction_horizon: int = 1,
         action_bounds=None,
-        action_init: list = None,
-        state_init: list = None,
+        action_init=None,
+        state_init=None,
         predictor=None,
         optimizer=None,
         critic=None,
@@ -47,7 +47,7 @@ class Actor:
         epsilon_greedy_parameter=0.0,
         observation_target=None,
     ):
-
+        print("init actor")
         self.prediction_horizon = prediction_horizon
         self.dim_output = dim_output
         self.dim_input = dim_input
@@ -71,9 +71,11 @@ class Actor:
             np.tile(action_init, (1, self.prediction_horizon + 1)))
 
         self.action_sequence_min = np.squeeze(
-            np.tile(self.action_min, (1, prediction_horizon + 1)))
+            np.tile(self.action_min, (1, self.prediction_horizon + 1)))
+
         self.action_sequence_max = np.squeeze(
-            np.tile(self.action_max, (1, prediction_horizon + 1)))
+            np.tile(self.action_max, (1, self.prediction_horizon + 1)))
+
         self.action_bounds = np.array(
             [self.action_sequence_min, self.action_sequence_max]
         )
@@ -131,6 +133,7 @@ class Actor:
 
         if observation is None:
             observation = self.observation
+
         self.action = self.model(observation - self.observation_target)
 
     def update_weights(self, weights=None):
@@ -174,21 +177,6 @@ class Actor:
     def accept_or_reject_weights(
         self, weights, constraint_functions=None, optimizer_engine="SciPy", atol=1e-5
     ):
-        """
-        Determines whether the given weights should be accepted or rejected based on the specified constraints.
-
-        :param weights: Array of weights to be evaluated.
-        :type weights: np.ndarray
-        :param constraint_functions: List of constraint functions to be evaluated.
-        :type constraint_functions: Optional[List[Callable[[np.ndarray], float]]], optional
-        :param optimizer_engine: String indicating the optimization engine being used.
-        :type optimizer_engine: str, optional
-        :param atol: Absolute tolerance used when evaluating the constraints.
-        :type atol: float, optional
-        :return: String indicating whether the weights were accepted ("accepted") or rejected ("rejected").
-        :rtype: str
-        """
-
         if constraint_functions is None:
             constraints_not_violated = True
         else:
@@ -217,62 +205,57 @@ class Actor:
         :returns: String indicating whether the optimization process was accepted or rejected.
         :rtype: str
         """
-
         final_count_of_actions = self.prediction_horizon + 1
         action_sequence = np.squeeze(
             np.tile(self.action, (1, final_count_of_actions)))
-
         action_sequence_init_reshaped = np.reshape(
             action_sequence,
             [final_count_of_actions * self.dim_output],
         )
-        print(action_sequence)
-        print("action_sequence_init_reshaped")
-        print(type(action_sequence_init_reshaped))
-        print(action_sequence_init_reshaped)
-        print("______________________________")
 
         constraints = []
 
-        action_sequence_init_reshaped = ca.DM(
-            action_sequence_init_reshaped)
+        if self.optimizer.engine == "CasADi":
+            action_sequence_init_reshaped = ca.DM(
+                action_sequence_init_reshaped)
 
-        symbolic_var = ca.MX.sym(
-            "x", action_sequence_init_reshaped.shape)
-
-        actor_objective = self.objective(
-            symbolic_var,
-            self.observation,
-        )
-
-        constraint_functions = []
-        if constraint_functions:
-            constraints = self.create_constraints(
-                constraint_functions, symbolic_var, self.observation
+            symbolic_var = ca.MX.sym(
+                "x",
+                action_sequence_init_reshaped.shape,
             )
 
-        if self.intrinsic_constraints:
-            intrisic_constraints = [
-                constraint(symbolic_var) for constraint in self.intrinsic_constraints
-            ]
-        else:
-            intrisic_constraints = []
+            # def actor_objective(action_sequence): return self.objective(
+            #     action_sequence, self.observation
+            # )
 
-        print(actor_objective)
+            # actor_objective = rc.lambda2symb(actor_objective, symbolic_var)
+            actor_objective = self.objective(symbolic_var, self.observation)
 
-        self.optimized_weights = self.optimizer.optimize(
-            actor_objective,
-            action_sequence_init_reshaped,
-            self.action_bounds,
-            constraints=intrisic_constraints + constraint_functions,
-            decision_variable_symbolic=symbolic_var,
-        )
-        print(self.optimized_weights)
-        print(symbolic_var.shape)
-        # self.cost_function = actor_objective
-        # self.constraint = intrisic_constraints[0]
-        # self.weights_init = action_sequence_init_reshaped
-        # self.symbolic_var = symbolic_var
+            constraint_functions = []
+            if constraint_functions:
+                constraints = self.create_constraints(
+                    constraint_functions, symbolic_var, self.observation
+                )
+
+            if self.intrinsic_constraints:
+                intrisic_constraints = [
+                    constraint(symbolic_var)
+                    for constraint in self.intrinsic_constraints
+                ]
+            else:
+                intrisic_constraints = []
+
+            self.optimized_weights = self.optimizer.optimize(
+                actor_objective,
+                action_sequence_init_reshaped,
+                self.action_bounds,
+                constraints=intrisic_constraints + constraint_functions,
+                decision_variable_symbolic=symbolic_var,
+            )
+            # self.cost_function = actor_objective
+            # self.constraint = intrisic_constraints[0]
+            # self.weights_init = action_sequence_init_reshaped
+            # self.symbolic_var = symbolic_var
 
         if self.intrinsic_constraints:
             # DEBUG ==============================
@@ -299,12 +282,22 @@ class ActorMPCA1(Actor):
         action_sequence,
         observation_full,
     ):
-        print("INPUT observation")
-        print(observation_full)
-        print("******************")
+        """
+        Calculates the actor objective for the given action sequence and observation using Rollout Q-learning (RQL).
+
+        :param action_sequence: numpy array of shape (prediction_horizon+1, dim_output) representing the sequence of actions to optimize
+        :type action_sequence: numpy.ndarray
+        :param observation: numpy array of shape (dim_output,) representing the current observation
+        :type observation: numpy.ndarray
+        :return: actor objective for the given action sequence and observation
+        :rtype: float
+        """
+
         action_sequence_reshaped = ca.reshape(
-            action_sequence, self.prediction_horizon + 1, self.dim_output
-        ).T
+            action_sequence, self.dim_output, self.prediction_horizon + 1
+        )
+
+        print(action_sequence_reshaped.shape)
 
         observation = observation_full[:12]
 
@@ -380,3 +373,78 @@ class ActorMPCA1(Actor):
         self.ref_body_plan = mpc_params.ref_body_plan.T
         self.predictor.update_params(mpc_params)
         self.update_constraints(mpc_params)
+
+
+class ActorRQLA1(ActorMPCA1):
+
+    def objective(
+        self,
+        action_sequence,
+        observation_full,
+    ):
+        """
+        Calculates the actor objective for the given action sequence and observation using Rollout Q-learning (RQL).
+
+        :param action_sequence: numpy array of shape (prediction_horizon+1, dim_output) representing the sequence of actions to optimize
+        :type action_sequence: numpy.ndarray
+        :param observation: numpy array of shape (dim_output,) representing the current observation
+        :type observation: numpy.ndarray
+        :return: actor objective for the given action sequence and observation
+        :rtype: float
+        """
+        action_sequence_reshaped = ca.reshape(
+            action_sequence, self.dim_output, self.prediction_horizon + 1
+        )
+
+        observation = observation_full[:12]
+        observation_sequence = [observation]
+
+        observation_sequence_predicted = self.predictor.predict_sequence(
+            observation_full, action_sequence_reshaped
+        )
+
+        observation_sequence = ca.hcat(
+            (
+                observation,
+                observation_sequence_predicted,
+            )
+        )
+
+        actor_objective = 0
+
+        for k in range(self.prediction_horizon):
+            state = observation_sequence[:, k]
+            full_state = ca.vcat([
+                state,
+                self.grf_positions_world[:, k],
+                self.ref_body_plan[:, k],
+            ])
+            actor_objective += self.discount_factor**k * self.running_objective(
+                full_state, action_sequence_reshaped[:, k]
+            )
+
+        # actor_objective += self.critic(
+        #     observation_sequence[:, -1] - self.observation_target,
+        #     action_sequence_reshaped[:, -1],
+        #     use_stored_weights=True,
+        # )
+
+        last_state_full = ca.vcat([
+            observation_sequence[:, k+1],
+            self.grf_positions_world[:, k+1],
+            self.ref_body_plan[:, k+1],
+        ]
+            # self.interpolate(self.ref_body_plan[:, k+1], self.ref_body_plan[:, k+2])]
+        )
+
+        actor_objective += self.critic(
+            last_state_full,
+            action_sequence_reshaped[:, -1],
+            use_stored_weights=True,
+        )
+
+        return actor_objective
+
+    def interpolate(self, x0, x1):
+        x_interp = x0 + (x1 - x0)/0.03 * 0.003
+        return x_interp

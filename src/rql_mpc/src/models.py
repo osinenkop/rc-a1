@@ -66,7 +66,7 @@ class ModelQuadNoMix(Model):
 
     def forward(self, *argin, weights=None):
         if len(argin) > 1:
-            vec = ca.concatenate(tuple(argin))
+            vec = ca.vcat(argin)
         else:
             vec = argin[0]
 
@@ -99,7 +99,7 @@ class ModelQuadNoMixA1(ModelQuadNoMix):
 
     def forward(self, *argin, weights=None):
         if len(argin) > 1:
-            input = ca.concatenate(tuple(argin))
+            input = ca.vcat(argin)
         else:
             input = argin[0]
         if (input.shape[0] != 48):

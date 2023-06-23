@@ -29,7 +29,7 @@ class A1system():
         self.dim_state = dim_state
         self.dim_input = dim_input
         self.dim_output = dim_output
-        with open("/home/catkin_ws/src/local_planner_calf/scripts/casadi_rhs.txt", "rb") as outf:
+        with open("./src/rql_mpc/src/casadi_rhs.txt", "rb") as outf:
             self.casadi_rhs = pickle.load(outf)
         print("a1 system is ready")
 

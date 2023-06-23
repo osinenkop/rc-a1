@@ -5,19 +5,21 @@ import numpy as np
 
 from system import A1system
 from simulator import A1simulator
-from controller import CriticOffPolicyBehaviour, RLController, A1myMPC
-from actor import ActorMPCA1
-from predictor import EulerPredictorA1
-from models import RosOnlineQuadForm, ModelWeightContainer, ModelQuadNoMixA1
-from optimizer import CasADiOptimizer
-from scenario import OnlineScenarioA1
+from controller import *
+from critic import *
+
+from actor import *
+from predictor import *
+from models import *
+from optimizer import *
+from scenario import *
 
 
 def launch():
     p = {
         # GENERAL
         "final_time": 4,
-        "prediction_horizon": 1,
+        "prediction_horizon": 4,
         "prediction_step_size": 0.03,
         "sampling_time": 0.003,
         # System
@@ -95,8 +97,8 @@ def launch():
         sampling_time=p["sampling_time"],
         state_init=p["state_init"],
         critic_regularization_param=0,
-        batch_size=50,
-        td_n=20,
+        batch_size=5,
+        td_n=2,
         optimizer=optimizer,
         model=critic_model,
     )
@@ -104,7 +106,22 @@ def launch():
     actor_model = ModelWeightContainer(
         system.dim_output, np.ones(system.dim_output))
 
-    actor = ActorMPCA1(
+    # actor = ActorMPCA1(
+    #     dim_input=system.dim_input,
+    #     dim_output=system.dim_output,
+    #     prediction_horizon=predictor.prediction_horizon,
+    #     predictor=predictor,
+    #     optimizer=optimizer,
+    #     critic=critic,
+    #     running_objective=running_objective,
+    #     model=actor_model,
+    #     discount_factor=1,
+    #     action_init=p["action_init"],
+    #     state_init=p["state_init"],
+    #     action_bounds=np.array([[-150, -150, -150]*4, [150, 150, 150]*4]).T
+    # )
+
+    actor = ActorRQLA1(
         dim_input=system.dim_input,
         dim_output=system.dim_output,
         prediction_horizon=predictor.prediction_horizon,
@@ -119,31 +136,22 @@ def launch():
         action_bounds=np.array([[-150, -150, -150]*4, [150, 150, 150]*4]).T
     )
 
-    MPC_rcognita = RLController(
+    controller = RLController(
         critic_period=p["sampling_time"],
         time_start=simulator.time_start,
-        is_fixed_critic_weights=True,
+        is_fixed_critic_weights=False,  # IF you wana fix weights
         actor=actor,
         critic=critic,
     )
 
-    MPC = A1myMPC(
-        sampling_time=p["sampling_time"],
-        horizon=p["prediction_horizon"],
-        diff_step=p["prediction_step_size"],
-        system=system,
-        predictor=predictor
-    )
-
     scenario = OnlineScenarioA1(
         simulator=simulator,
-        controller=MPC_rcognita,
+        controller=controller,
         running_objective=running_objective,
         predictor=predictor,
         state_init=p["state_init"],
         action_init=p["action_init"],
     )
-
     scenario.run()
 
     print("DONE")

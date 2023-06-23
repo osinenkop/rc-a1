@@ -92,8 +92,8 @@ class OnlineScenarioA1():
             print("ACTION")
             print(self.action)
             print("log info")
+            print(self.controller.critic.weights)
             self.printLogData()
-            raise Exception
             # self.sim_status = self.simulator.do_sim_step()
             return True
 
