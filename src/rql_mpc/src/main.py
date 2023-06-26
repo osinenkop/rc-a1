@@ -41,7 +41,7 @@ def launch():
         "state_init": np.array([-0.02461464,  0.00024726,  0.26689154, -0.00379155, -0.03107476,        0.00093648,  0.00004392,  0.00000232, -0.00001977, -0.00006318,        0.00008691,  0.00000217]),
         "action_init": np.zeros(12),
         "body_plan_init": np.array([-0.02461332,   0.00024733,   0.26689095,  -0.00379344,        -0.03107215,   0.00093654,  -0.00780878,   0.00015397,         0.00573565,   0.0261033,   0.17923658,   0.00068405]),
-        # MPC weights
+        # objective weights
         "QandR": [np.array([1., 1., 10., 1, 1, 1, 0.02, 0.02, 0.04, 0.01, 0.01, 0.002]) * 1000000,
                   [1e-4]]
     }
@@ -96,7 +96,7 @@ def launch():
         discount_factor=1,
         sampling_time=p["sampling_time"],
         state_init=p["state_init"],
-        critic_regularization_param=0,
+        critic_regularization_param=1e-8,
         batch_size=5,
         td_n=2,
         optimizer=optimizer,

@@ -87,13 +87,10 @@ class OnlineScenarioA1():
             print("receive_action and body_plan")
             self.system.receive_action(self.action, msg_time)
             self.system.receive_body_plan(body_plan)
-            print("post_step")
-            # self.post_step()
-            print("ACTION")
-            print(self.action)
             print("log info")
-            print(self.controller.critic.weights)
             self.printLogData()
+            print("critic weights")
+            print(self.controller.critic.weights)
             # self.sim_status = self.simulator.do_sim_step()
             return True
 
